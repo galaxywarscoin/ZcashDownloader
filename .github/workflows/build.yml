@@ -28,36 +28,41 @@ jobs:
         path: zcash-downloader
 
   windows:
-    runs-on: windows-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  runs-on: windows-latest
+  steps:
+  - name: Checkout code
+    uses: actions/checkout@v4
 
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
+  - name: Setup MSVC
+    uses: ilammy/msvc-dev-cmd@v1
+    with:
+      arch: x64
 
-    - name: Install dependencies
-      run: |
-        choco install curl -y --version=8.6.0
+  - name: Install dependencies
+    run: |
+      choco install curl --version=8.6.0 -y --params '"/InstallDir:C:\curl /AddToPath"'
 
-    - name: Compile
-      run: |
-        cl /EHsc /I "C:\tools\curl\include" /Fe: zcash-downloader.exe main.cpp "C:\tools\curl\lib\libcurl.lib"
+  - name: Verify curl installation
+    run: |
+      dir "C:\curl\include\curl"
+      dir "C:\curl\lib"
 
-    - name: Copy DLLs
-      run: |
-        copy "C:\tools\curl\bin\libcurl.dll" .
+  - name: Compile
+    run: |
+      cl /EHsc /I "C:\curl\include" /Fe: zcash-downloader.exe main.cpp "C:\curl\lib\libcurl.lib"
 
-    - name: Run
-      run: |
-        .\zcash-downloader.exe
+  - name: Copy DLLs
+    run: |
+      copy "C:\curl\bin\libcurl.dll" .
 
-    - name: Upload Windows Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-binary
-        path: |
-          zcash-downloader.exe
-          libcurl.dll
+  - name: Run
+    run: |
+      .\zcash-downloader.exe
+
+  - name: Upload Windows Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: windows-binary
+      path: |
+        zcash-downloader.exe
+        libcurl.dll
