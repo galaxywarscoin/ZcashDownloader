@@ -1,4 +1,4 @@
-name: Build and Run
+name: Build C++ Application
 
 on:
   push:
@@ -8,22 +8,20 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v2
-      with:
-        dotnet-version: '7.0.x'  # Убедитесь, что у вас установлена правильная версия .NET
+    - name: Install Build Tools
+      run: |
+        choco install mingw
 
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Build the application
+      run: |
+        g++ main.cpp -o ZcashDownloader.exe -lcurl
 
-    - name: Build
-      run: dotnet build --configuration Release
-
-    - name: Run
-      run: dotnet run --configuration Release
+    - name: Run the application
+      run: |
+        .\ZcashDownloader.exe
