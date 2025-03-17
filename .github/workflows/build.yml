@@ -1,9 +1,6 @@
 name: Cross-Platform Build
 
-on:
-  push:
-    branches:
-      - main
+on: [push, pull_request]
 
 jobs:
   linux:
@@ -31,41 +28,39 @@ jobs:
         path: zcash-downloader
 
   windows:
-   runs-on: windows-latest
-   steps:
-   - name: Checkout code
-     uses: actions/checkout@v4
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-   - name: Setup MSVC
-     uses: ilammy/msvc-dev-cmd@v1
-     with:
-      arch: x64
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
-   - name: Install dependencies
-     run: |
-      choco install curl --version=8.6.0 -y --params '"/InstallDir:C:\curl /AddToPath"'
+    - name: Install curl
+      run: |
+        $curlUrl = "https://curl.se/windows/dl-8.6.0_3/curl-8.6.0_3-win64-mingw.zip"
+        Invoke-WebRequest -Uri $curlUrl -OutFile curl.zip
+        Expand-Archive -Path curl.zip -DestinationPath C:\curl
+        echo "CURL_ROOT=C:\curl\curl-8.6.0_3-win64-mingw" >> $env:GITHUB_ENV
 
-   - name: Verify curl installation
-     run: |
-      dir "C:\curl\include\curl"
-      dir "C:\curl\lib"
+    - name: Compile
+      run: |
+        cl /EHsc /I "$env:CURL_ROOT\include" /Fe: zcash-downloader.exe main.cpp "$env:CURL_ROOT\lib\libcurl.lib"
 
-   - name: Compile
-     run: |
-      cl /EHsc /I "C:\curl\include" /Fe: zcash-downloader.exe main.cpp "C:\curl\lib\libcurl.lib"
+    - name: Copy DLL
+      run: |
+        copy "$env:CURL_ROOT\bin\libcurl-x64.dll" libcurl.dll
 
-   - name: Copy DLLs
-     run: |
-      copy "C:\curl\bin\libcurl.dll" .
+    - name: Run
+      run: |
+        .\zcash-downloader.exe
 
-   - name: Run
-     run: |
-      .\zcash-downloader.exe
-
-   - name: Upload Windows Artifact
-     uses: actions/upload-artifact@v4
-     with:
-      name: windows-binary
-      path: |
-        zcash-downloader.exe
-        libcurl.dll
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-binary
+        path: |
+          zcash-downloader.exe
+          libcurl.dll
