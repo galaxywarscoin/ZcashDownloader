@@ -1,9 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <curl/curl.h>
-#include <windows.h>
+#include <filesystem>
+#include <cstdlib>
 
-// Функция обратного вызова для записи данных
+namespace fs = std::filesystem;
+
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     std::ofstream* out = static_cast<std::ofstream*>(userp);
     size_t totalSize = size * nmemb;
@@ -11,7 +13,6 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     return totalSize;
 }
 
-// Функция для загрузки файла
 bool downloadFile(const std::string& url, const std::string& outputPath) {
     CURL* curl;
     CURLcode res;
@@ -29,6 +30,7 @@ bool downloadFile(const std::string& url, const std::string& outputPath) {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &outFile);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
         res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
@@ -40,29 +42,35 @@ bool downloadFile(const std::string& url, const std::string& outputPath) {
 
     curl_global_cleanup();
     outFile.close();
-    return true;
-}
-
-// Функция для проверки существования каталога
-bool directoryExists(const std::string& dir) {
-    DWORD ftyp = GetFileAttributesA(dir.c_str());
-    return (ftyp != INVALID_FILE_ATTRIBUTES && (ftyp & FILE_ATTRIBUTE_DIRECTORY));
-}
-
-// Функция для создания каталога
-void createDirectory(const std::string& dir) {
-    CreateDirectoryA(dir.c_str(), nullptr);
+    return res == CURLE_OK;
 }
 
 int main() {
-    std::string appDataPath = getenv("APPDATA") + std::string("\\ZcashParams");
+    fs::path appDataPath;
+    
+    #ifdef _WIN32
+        const char* appData = std::getenv("APPDATA");
+        if (!appData) {
+            std::cerr << "APPDATA environment variable not found!" << std::endl;
+            return 1;
+        }
+        appDataPath = fs::path(appData) / "ZcashParams";
+    #else
+        const char* homeDir = std::getenv("HOME");
+        if (!homeDir) {
+            std::cerr << "HOME environment variable not found!" << std::endl;
+            return 1;
+        }
+        appDataPath = fs::path(homeDir) / ".zcash-params";
+    #endif
 
-    // Создание директории, если она не существует
-    if (!directoryExists(appDataPath)) {
-        createDirectory(appDataPath);
+    try {
+        fs::create_directories(appDataPath);
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Error creating directory: " << e.what() << std::endl;
+        return 1;
     }
 
-    // Массив URL для загрузки
     std::string filesToDownload[] = {
         "https://komodoplatform.com/downloads/sprout-proving.key",
         "https://komodoplatform.com/downloads/sprout-verifying.key",
@@ -73,20 +81,20 @@ int main() {
 
     for (const auto& fileUrl : filesToDownload) {
         std::string fileName = fileUrl.substr(fileUrl.find_last_of("/") + 1);
-        std::string localPath = appDataPath + "\\" + fileName;
+        fs::path localPath = appDataPath / fileName;
 
-        // Проверка существования файла
-        std::ifstream infile(localPath);
-        if (!infile.good()) {
-            std::cout << "Downloading " << fileName << ", this may take a while ..." << std::endl;
-            if (downloadFile(fileUrl, localPath)) {
+        if (!fs::exists(localPath)) {
+            std::cout << "Downloading " << fileName << "...\n";
+            if (downloadFile(fileUrl, localPath.string())) {
                 std::cout << "Download complete: " << localPath << std::endl;
+            } else {
+                std::cerr << "Failed to download: " << fileName << std::endl;
             }
         } else {
             std::cout << fileName << " already exists, skipping download." << std::endl;
         }
     }
 
-    std::cout << "All files are downloaded or already exist." << std::endl;
+    std::cout << "All files processed." << std::endl;
     return 0;
 }
