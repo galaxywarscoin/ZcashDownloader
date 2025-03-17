@@ -33,6 +33,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
     - name: Install dependencies
       run: |
         choco install curl -y --version=8.6.0
@@ -41,10 +46,9 @@ jobs:
       run: |
         cl /EHsc /I "C:\tools\curl\include" /Fe: zcash-downloader.exe main.cpp "C:\tools\curl\lib\libcurl.lib"
 
-    - name: Add curl DLL to PATH
+    - name: Copy DLLs
       run: |
-        $env:PATH += ";C:\tools\curl\bin"
-        echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+        copy "C:\tools\curl\bin\libcurl.dll" .
 
     - name: Run
       run: |
@@ -56,4 +60,4 @@ jobs:
         name: windows-binary
         path: |
           zcash-downloader.exe
-          C:\tools\curl\bin\libcurl.dll
+          libcurl.dll
