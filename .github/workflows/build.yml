@@ -14,13 +14,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install Build Tools
+    - name: Install dependencies
       run: |
         choco install mingw
+        choco install curl
+
+    - name: Set up environment
+      run: |
+        echo "Add mingw bin to PATH"
+        setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\mingw\bin"
 
     - name: Build the application
       run: |
-        g++ main.cpp -o ZcashDownloader.exe -lcurl
+        g++ main.cpp -o ZcashDownloader.exe -I"C:\ProgramData\chocolatey\lib\curl\include" -L"C:\ProgramData\chocolatey\lib\curl\lib" -lcurl
 
     - name: Run the application
       run: |
