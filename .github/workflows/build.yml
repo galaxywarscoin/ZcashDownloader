@@ -14,19 +14,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install dependencies
+    - name: Install vcpkg
       run: |
-        choco install mingw
-        choco install curl
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
 
-    - name: Set up environment
+    - name: Install libcurl
       run: |
-        echo "Add mingw bin to PATH"
-        setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\mingw\bin"
+        cd vcpkg
+        .\vcpkg install curl --triplet=x64-windows
+
+    - name: Add vcpkg to path
+      run: |
+        echo "##[add-path]$(pwd)/vcpkg"
 
     - name: Build the application
       run: |
-        g++ main.cpp -o ZcashDownloader.exe -I"C:\ProgramData\chocolatey\lib\curl\include" -L"C:\ProgramData\chocolatey\lib\curl\lib" -lcurl
+        g++ main.cpp -o ZcashDownloader.exe -I"%cd%\vcpkg\installed\x64-windows\include" -L"%cd%\vcpkg\installed\x64-windows\lib" -lcurl
 
     - name: Run the application
       run: |
