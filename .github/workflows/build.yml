@@ -1,38 +1,59 @@
-name: Build C++ Application
+name: Cross-Platform Build
 
-on:
-  push:
-    branches:
-      - main
+on: [push, pull_request]
 
 jobs:
-  build:
-
-    runs-on: windows-latest
-
+  linux:
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
-    - name: Install vcpkg
+    - name: Install dependencies
       run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        cd vcpkg
-        ./bootstrap-vcpkg.bat
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev build-essential
 
-    - name: Install libcurl
+    - name: Compile
       run: |
-        cd vcpkg
-        .\vcpkg install curl --triplet=x64-windows
+        g++ -std=c++17 -o zcash-downloader main.cpp -lcurl -lstdc++fs
 
-    - name: Add vcpkg to path
-      run: |
-        echo "##[add-path]$(pwd)/vcpkg"
+    - name: Run
+      run: ./zcash-downloader
 
-    - name: Build the application
-      run: |
-        g++ main.cpp -o ZcashDownloader.exe -I"%cd%\vcpkg\installed\x64-windows\include" -L"%cd%\vcpkg\installed\x64-windows\lib" -lcurl
+    - name: Upload Linux Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-binary
+        path: zcash-downloader
 
-    - name: Run the application
+  windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
       run: |
-        .\ZcashDownloader.exe
+        choco install curl -y --version=8.6.0
+
+    - name: Compile
+      run: |
+        cl /EHsc /I "C:\tools\curl\include" /Fe: zcash-downloader.exe main.cpp "C:\tools\curl\lib\libcurl.lib"
+
+    - name: Add curl DLL to PATH
+      run: |
+        $env:PATH += ";C:\tools\curl\bin"
+        echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+
+    - name: Run
+      run: |
+        .\zcash-downloader.exe
+
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-binary
+        path: |
+          zcash-downloader.exe
+          C:\tools\curl\bin\libcurl.dll
