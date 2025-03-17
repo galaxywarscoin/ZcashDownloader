@@ -4,6 +4,10 @@
 #include <filesystem>
 #include <cstdlib>
 
+#if defined(_WIN32) && !defined(_WIN64)
+#error "32-bit Windows is not supported"
+#endif
+
 namespace fs = std::filesystem;
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
@@ -31,6 +35,7 @@ bool downloadFile(const std::string& url, const std::string& outputPath) {
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &outFile);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
 
         res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
@@ -66,12 +71,13 @@ int main() {
 
     try {
         fs::create_directories(appDataPath);
+        std::cout << "Using directory: " << appDataPath << std::endl;
     } catch (const fs::filesystem_error& e) {
         std::cerr << "Error creating directory: " << e.what() << std::endl;
         return 1;
     }
 
-    std::string filesToDownload[] = {
+    const std::string filesToDownload[] = {
         "https://komodoplatform.com/downloads/sprout-proving.key",
         "https://komodoplatform.com/downloads/sprout-verifying.key",
         "https://komodoplatform.com/downloads/sapling-spend.params",
@@ -80,8 +86,8 @@ int main() {
     };
 
     for (const auto& fileUrl : filesToDownload) {
-        std::string fileName = fileUrl.substr(fileUrl.find_last_of("/") + 1);
-        fs::path localPath = appDataPath / fileName;
+        const std::string fileName = fileUrl.substr(fileUrl.find_last_of("/") + 1);
+        const fs::path localPath = appDataPath / fileName;
 
         if (!fs::exists(localPath)) {
             std::cout << "Downloading " << fileName << "...\n";
@@ -95,6 +101,6 @@ int main() {
         }
     }
 
-    std::cout << "All files processed." << std::endl;
+    std::cout << "All files processed successfully." << std::endl;
     return 0;
 }
